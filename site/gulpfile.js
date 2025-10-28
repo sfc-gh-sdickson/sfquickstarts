@@ -143,8 +143,11 @@ gulp.task('export:codelabs', (callback) => {
     claat.run(CODELABS_SRC_DIR, 'export', CODELABS_ENVIRONMENT, CODELABS_FORMAT, DEFAULT_GA, "../../" + CODELABS_BUILD_DIR, CODELABS_ELEMENTS_PREFIX, sources, callback);
   } else {
     // limit sources to args.lab if specified, else all markdowns
-    const sources = args.lab ? [args.lab + '/*.md'] : ["[^_]*/*.md"]; //export all markdown files in the src directory (or lab directory), except _imports
-    // claat.run(CODELABS_SRC_DIR, 'export', CODELABS_ENVIRONMENT, CODELABS_FORMAT, DEFAULT_GA, "../../"+CODELABS_BUILD_DIR, sources, callback);
+    const sourcesPattern = args.lab ? [args.lab + '/**/*.md'] : ["[^_]*/**/*.md"];
+    const sources = glob.sync(sourcesPattern[0], {
+      cwd: CODELABS_SRC_DIR,
+      ignore: ['**/assets/**', '**/README.md'],
+    });
     claat.run(CODELABS_SRC_DIR, 'export', CODELABS_ENVIRONMENT, CODELABS_FORMAT, DEFAULT_GA, "../../" + CODELABS_BUILD_DIR, CODELABS_ELEMENTS_PREFIX, sources, callback);
   }
 });

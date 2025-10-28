@@ -15,6 +15,12 @@ This QuickStart demonstrates how to build a comprehensive healthcare compliance 
 
 Snow Health provides healthcare compliance software solutions including learning management systems, credentialing services, and compliance management tools. This solution showcases how AI agents can help healthcare organizations track training compliance, monitor credential expirations, analyze incident patterns, and search unstructured support documentation.
 
+### GitHub Repository
+
+**🔗 Complete Source Code**: [Snow-Health-Compliance on GitHub](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance)
+
+All SQL scripts, notebooks, and documentation for this QuickStart are available in the GitHub repository. You can clone the repository or download individual files as needed throughout this guide.
+
 ### Prerequisites
 - A Snowflake account with Cortex Intelligence enabled
 - ACCOUNTADMIN role or equivalent privileges
@@ -48,22 +54,57 @@ Snow Health provides healthcare compliance software solutions including learning
 <!-- ------------------------ -->
 ## Architecture Overview
 
-The Snow Health Intelligence solution combines multiple Snowflake technologies:
+The Snow Health Intelligence solution combines multiple Snowflake technologies in a three-layer architecture:
 
-**Data Layer:**
-- 19 tables with healthcare data (organizations, employees, courses, credentials, incidents)
-- 40,000+ unstructured documents (support transcripts, incident reports, training materials)
+<img src="assets/architecture_diagram.svg" alt="Snow Health Intelligence Architecture" style="max-width: 100%; height: auto;">
 
-**Analytics Layer:**
-- Analytical views for reporting
-- Semantic views for AI agent queries
-- Cortex Search services for semantic search
+### Architecture Layers
 
-**AI Layer:**
-- Cortex Analyst for structured data queries
-- Cortex Search for unstructured data retrieval
-- Snowflake Intelligence Agent for orchestration
-- Optional: ML models for predictive analytics
+**Layer 1: AI Agent (Orchestration)**
+- **Snowflake Intelligence Agent**: Routes natural language queries to appropriate services
+- Combines insights from both structured and unstructured data sources
+- Provides conversational interface for end users
+
+**Layer 2A: Cortex Analyst (Structured Data)**
+- Analyzes structured data through 3 semantic views:
+  - Learning & Credentialing Intelligence
+  - Subscription & Revenue Intelligence
+  - Support Intelligence
+- Generates SQL queries automatically from natural language
+- Provides metrics, aggregations, and trend analysis
+
+**Layer 2B: ML Models (Optional - Predictive Analytics)**
+- Three trained machine learning models:
+  - Compliance Risk Predictor (Random Forest)
+  - Course Completion Predictor (Logistic Regression)
+  - Subscription Churn Predictor (Random Forest)
+- Consumes structured data from tables
+- Provides predictive insights to the Intelligence Agent
+- Optional component for advanced analytics
+
+**Layer 2C: Cortex Search (Unstructured Data)**
+- Semantic search across 3 document collections:
+  - Support Transcripts (25,000 documents)
+  - Incident Reports (15,000 documents)
+  - Training Materials
+- Enables RAG (Retrieval Augmented Generation)
+- Finds relevant content by meaning, not just keywords
+
+**Layer 3: Data Sources**
+- **Structured**: 19 tables with 2.5M+ records (organizations, employees, courses, credentials, subscriptions, transactions, support tickets, incidents)
+- **Unstructured**: 40,000+ documents with change tracking enabled
+
+### Data Flow
+
+1. **Structured Analytics path**: Raw tables → Cortex Analyst (Semantic Views) → Intelligence Agent
+2. **Predictive Analytics path** (Optional): Raw tables → ML Models → Intelligence Agent
+3. **Unstructured Search path**: Document collections → Cortex Search → Intelligence Agent
+4. **Combined insights**: Agent orchestrates between all sources for comprehensive answers
+
+The animated diagram above shows real-time data flows with:
+- **Solid arrows**: Core data flows (Cortex Analyst and Cortex Search)
+- **Dashed arrows**: Optional ML model flows
+- **Color coding**: Green (structured), Purple (ML/Agent), Blue (unstructured)
 
 > aside positive
 > 
@@ -125,14 +166,19 @@ You should see `RAW` and `ANALYTICS` schemas.
 
 Now we'll create 19 tables that model Snow Health's business operations.
 
-**Step 1:** Execute the following SQL to create core tables:
+> aside negative
+> 
+> **Note**: The SQL below shows **example table structures only**. For the complete script with all 19 tables, download the file from GitHub and execute it end-to-end.
+
+**Example - Sample Table Structures (3 of 19 tables):**
 
 ```sql
+-- EXAMPLE ONLY - Download complete script from GitHub
 USE DATABASE SNOW_HEALTH_INTELLIGENCE;
 USE SCHEMA RAW;
 USE WAREHOUSE SNOW_HEALTH_WH;
 
--- Organizations Table
+-- Organizations Table (Example 1 of 19)
 CREATE OR REPLACE TABLE ORGANIZATIONS (
     organization_id VARCHAR(20) PRIMARY KEY,
     organization_name VARCHAR(200) NOT NULL,
@@ -151,7 +197,7 @@ CREATE OR REPLACE TABLE ORGANIZATIONS (
     updated_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
 );
 
--- Employees Table
+-- Employees Table (Example 2 of 19)
 CREATE OR REPLACE TABLE EMPLOYEES (
     employee_id VARCHAR(30) PRIMARY KEY,
     organization_id VARCHAR(20) NOT NULL,
@@ -169,7 +215,7 @@ CREATE OR REPLACE TABLE EMPLOYEES (
     FOREIGN KEY (organization_id) REFERENCES ORGANIZATIONS(organization_id)
 );
 
--- Courses Table
+-- Courses Table (Example 3 of 19)
 CREATE OR REPLACE TABLE COURSES (
     course_id VARCHAR(30) PRIMARY KEY,
     course_name VARCHAR(200) NOT NULL,
@@ -185,13 +231,14 @@ CREATE OR REPLACE TABLE COURSES (
     created_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP(),
     updated_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
 );
+
+-- ... 16 more tables (see complete file) ...
 ```
 
-**Step 2:** Download the complete table creation script:
+**Download and Execute Complete Table Creation Script:**
 
-<button>
-  [Download 02_create_tables.sql](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/sql/setup/02_create_tables.sql)
-</button>
+**📄 View on GitHub**: [02_create_tables.sql](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/sql/setup/02_create_tables.sql)  
+**⬇️ Download**: [Download Table Creation SQL](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/sql/setup/02_create_tables.sql)
 
 The complete script creates all 19 tables including:
 - ORGANIZATIONS, EMPLOYEES, COURSES
@@ -202,9 +249,9 @@ The complete script creates all 19 tables including:
 - INCIDENTS, POLICIES, POLICY_ACKNOWLEDGMENTS, ACCREDITATIONS
 - PRODUCTS, MARKETING_CAMPAIGNS
 
-**Step 3:** Execute the complete script in your SQL Worksheet.
+**Execute the complete script end-to-end in your SQL Worksheet.**
 
-**Step 4:** Verify tables were created:
+**Verify tables were created:
 
 ```sql
 SHOW TABLES IN SCHEMA RAW;
@@ -223,7 +270,11 @@ You should see 19 tables.
 
 Now we'll populate the tables with realistic healthcare data.
 
-**Step 1:** Execute the data generation script. This creates:
+> aside negative
+> 
+> **Note**: The SQL below shows an **example for one table only**. The complete script generates data for all 19 tables with proper relationships. Download and execute the complete file end-to-end.
+
+This creates:
 - 50,000 healthcare organizations (hospitals, clinics, practices)
 - 500,000 employees across all organizations
 - 1,000,000 course enrollments
@@ -234,7 +285,10 @@ Now we'll populate the tables with realistic healthcare data.
 - 50,000 incident reports
 - And more...
 
+**Example - Organizations Table Data Generation (1 of 19 tables):**
+
 ```sql
+-- EXAMPLE ONLY - Download complete script from GitHub
 USE DATABASE SNOW_HEALTH_INTELLIGENCE;
 USE SCHEMA RAW;
 USE WAREHOUSE SNOW_HEALTH_WH;
@@ -275,17 +329,18 @@ SELECT
     CURRENT_TIMESTAMP() AS created_at,
     CURRENT_TIMESTAMP() AS updated_at
 FROM TABLE(GENERATOR(ROWCOUNT => 50000));
+
+-- ... INSERT statements for 18 more tables (see complete file) ...
 ```
 
-**Step 2:** Download the complete data generation script:
+**Download and Execute Complete Data Generation Script:**
 
-<button>
-  [Download 03_generate_synthetic_data.sql](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/sql/data/03_generate_synthetic_data.sql)
-</button>
+**📄 View on GitHub**: [03_generate_synthetic_data.sql](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/sql/data/03_generate_synthetic_data.sql)  
+**⬇️ Download**: [Download Data Generation SQL](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/sql/data/03_generate_synthetic_data.sql)
 
-**Step 3:** Execute the complete script.
+**Execute the complete script end-to-end in your SQL Worksheet.**
 
-**Step 4:** Verify data was loaded:
+**Verify data was loaded:
 
 ```sql
 SELECT 
@@ -321,14 +376,19 @@ SELECT 'INCIDENTS', COUNT(*) FROM INCIDENTS;
 
 Create curated analytical views that aggregate and summarize the data.
 
-**Step 1:** Execute the following SQL to create analytical views:
+> aside negative
+> 
+> **Note**: The SQL below shows **examples of 2 views only**. The complete script creates 8 analytical views. Download and execute the complete file end-to-end.
+
+**Example - Sample Analytical Views (2 of 8 views):**
 
 ```sql
+-- EXAMPLE ONLY - Download complete script from GitHub
 USE DATABASE SNOW_HEALTH_INTELLIGENCE;
 USE SCHEMA ANALYTICS;
 USE WAREHOUSE SNOW_HEALTH_WH;
 
--- Organization 360 View
+-- Organization 360 View (Example 1 of 8)
 CREATE OR REPLACE VIEW V_ORGANIZATION_360 AS
 SELECT
     o.organization_id,
@@ -354,7 +414,7 @@ GROUP BY
     o.organization_status, o.state, o.city, o.signup_date, 
     o.lifetime_value, o.compliance_risk_score;
 
--- Employee Training Analytics View
+-- Employee Training Analytics View (Example 2 of 8)
 CREATE OR REPLACE VIEW V_EMPLOYEE_TRAINING_ANALYTICS AS
 SELECT
     e.employee_id,
@@ -376,13 +436,14 @@ LEFT JOIN RAW.COURSE_COMPLETIONS cc ON ce.enrollment_id = cc.enrollment_id
 GROUP BY 
     e.employee_id, e.employee_name, e.organization_id, 
     e.job_title, e.department, e.employee_status, e.compliance_status;
+
+-- ... 6 more views (see complete file) ...
 ```
 
-**Step 2:** Download the complete analytical views script:
+**Download and Execute Complete Analytical Views Script:**
 
-<button>
-  [Download 04_create_views.sql](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/sql/views/04_create_views.sql)
-</button>
+**📄 View on GitHub**: [04_create_views.sql](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/sql/views/04_create_views.sql)  
+**⬇️ Download**: [Download Analytical Views SQL](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/sql/views/04_create_views.sql)
 
 The complete script creates 8 analytical views:
 - V_ORGANIZATION_360
@@ -394,7 +455,7 @@ The complete script creates 8 analytical views:
 - V_CAMPAIGN_PERFORMANCE
 - V_INCIDENT_ANALYTICS
 
-**Step 3:** Execute the complete script.
+**Execute the complete script end-to-end in your SQL Worksheet.**
 
 > aside positive
 > 
@@ -407,14 +468,19 @@ The complete script creates 8 analytical views:
 
 Semantic views are the foundation for Cortex Analyst. They define the business logic, relationships, dimensions, and metrics that the AI agent will use to answer questions.
 
-**Step 1:** Execute the following SQL to create semantic views:
+> aside negative
+> 
+> **Note**: The SQL below shows **one complete semantic view as an example**. The complete script creates 3 semantic views. Download and execute the complete file end-to-end.
+
+**Example - Learning & Credentialing Intelligence Semantic View (1 of 3):**
 
 ```sql
+-- EXAMPLE ONLY - Download complete script from GitHub
 USE DATABASE SNOW_HEALTH_INTELLIGENCE;
 USE SCHEMA ANALYTICS;
 USE WAREHOUSE SNOW_HEALTH_WH;
 
--- Semantic View 1: Learning & Credentialing Intelligence
+-- Semantic View 1: Learning & Credentialing Intelligence (Example 1 of 3)
 CREATE OR REPLACE SEMANTIC VIEW SV_LEARNING_CREDENTIALING_INTELLIGENCE
   TABLES (
     organizations AS RAW.ORGANIZATIONS
@@ -489,20 +555,19 @@ CREATE OR REPLACE SEMANTIC VIEW SV_LEARNING_CREDENTIALING_INTELLIGENCE
 - **DIMENSIONS**: Define descriptive attributes with synonyms for natural language queries
 - **METRICS**: Define calculations and aggregations the agent can use
 
-**Step 2:** Download the complete semantic views script:
+**Download and Execute Complete Semantic Views Script:**
 
-<button>
-  [Download 05_create_semantic_views.sql](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/sql/views/05_create_semantic_views.sql)
-</button>
+**📄 View on GitHub**: [05_create_semantic_views.sql](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/sql/views/05_create_semantic_views.sql)  
+**⬇️ Download**: [Download Semantic Views SQL](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/sql/views/05_create_semantic_views.sql)
 
 The complete script creates 3 semantic views:
 - **SV_LEARNING_CREDENTIALING_INTELLIGENCE**: Training and credential analytics
 - **SV_SUBSCRIPTION_REVENUE_INTELLIGENCE**: Subscription and revenue metrics
 - **SV_ORGANIZATION_SUPPORT_INTELLIGENCE**: Support ticket and agent performance
 
-**Step 3:** Execute the complete script.
+**Execute the complete script end-to-end in your SQL Worksheet.**
 
-**Step 4:** Verify semantic views were created:
+**Verify semantic views were created:
 
 ```sql
 SHOW SEMANTIC VIEWS IN SCHEMA ANALYTICS;
@@ -519,7 +584,13 @@ SHOW SEMANTIC VIEWS IN SCHEMA ANALYTICS;
 
 Cortex Search enables semantic search over unstructured text data. We'll create three search services for support transcripts, incident reports, and training materials.
 
-**Step 1:** First, create tables for unstructured data:
+> aside negative
+> 
+> **Note**: The complete script includes table creation, data population (40,000+ documents), and search service creation. Download and execute the complete file end-to-end for best results.
+
+**Step 1: Create Tables for Unstructured Data**
+
+Execute this SQL to create the three tables with change tracking enabled:
 
 ```sql
 USE DATABASE SNOW_HEALTH_INTELLIGENCE;
@@ -565,13 +636,16 @@ CREATE OR REPLACE TABLE TRAINING_MATERIALS (
 > 
 > **Important**: `CHANGE_TRACKING = TRUE` is required for Cortex Search services to function properly.
 
-**Step 2:** Populate the tables with sample unstructured data (25,000 support transcripts, 15,000 incident reports, and 3 training materials):
+**Step 2: Download Complete Script to Populate Data and Create Search Services**
 
-<button>
-  [Download 06_create_cortex_search.sql](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/sql/search/06_create_cortex_search.sql)
-</button>
+The complete script populates tables with sample unstructured data (25,000 support transcripts, 15,000 incident reports, and 3 training materials) and creates the Cortex Search services.
 
-**Step 3:** Create Cortex Search services:
+**📄 View on GitHub**: [06_create_cortex_search.sql](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/sql/search/06_create_cortex_search.sql)  
+**⬇️ Download**: [Download Cortex Search SQL](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/sql/search/06_create_cortex_search.sql)
+
+**Execute the complete script end-to-end in your SQL Worksheet.**
+
+**Example - Cortex Search Service Definitions (from complete script):**
 
 ```sql
 -- Cortex Search Service 1: Support Transcripts
@@ -626,13 +700,13 @@ CREATE OR REPLACE CORTEX SEARCH SERVICE TRAINING_MATERIALS_SEARCH
     );
 ```
 
-**Step 4:** Wait for the search services to index (3-5 minutes). Verify they're ready:
+**Step 3:** Wait for the search services to index (3-5 minutes). Verify they're ready:
 
 ```sql
 SHOW CORTEX SEARCH SERVICES IN SCHEMA RAW;
 ```
 
-**Step 5:** Test a search service:
+**Step 4:** Test a search service:
 
 ```sql
 SELECT PARSE_JSON(
@@ -963,9 +1037,8 @@ In the notebook, add these packages:
 
 **Step 3: Download the ML Notebook**
 
-<button>
-  [Download snow_health_ml_models.ipynb](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/notebooks/snow_health_ml_models.ipynb)
-</button>
+**📄 View on GitHub**: [snow_health_ml_models.ipynb](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/notebooks/snow_health_ml_models.ipynb)  
+**⬇️ Download**: [Download ML Notebook](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/notebooks/snow_health_ml_models.ipynb)
 
 **Step 4: Train the Models**
 
@@ -981,9 +1054,8 @@ Run all cells in the notebook to train and register the models to Snowflake Mode
 
 Execute the wrapper SQL script:
 
-<button>
-  [Download 07_create_model_wrapper_functions.sql](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance/blob/main/sql/ml/07_create_model_wrapper_functions.sql)
-</button>
+**📄 View on GitHub**: [07_create_model_wrapper_functions.sql](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/blob/main/sql/ml/07_create_model_wrapper_functions.sql)  
+**⬇️ Download**: [Download ML Wrapper Procedures](https://raw.githubusercontent.com/sfc-gh-sdickson/Snow-Health-Compliance/main/sql/ml/07_create_model_wrapper_functions.sql)
 
 This creates stored procedures:
 - `PREDICT_COMPLIANCE_RISK(department_filter)`
@@ -1072,11 +1144,10 @@ This solution demonstrates:
 
 ### Source Code
 
-<button>
-  [View Full Source Code on GitHub](https://github.com/Snowflake-Labs/sfguide-snow-health-compliance)
-</button>
+**🔗 GitHub Repository**: [Snow-Health-Compliance](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance)  
+**📦 View All Files**: [Browse Repository](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance/tree/main)
 
-All SQL scripts, notebooks, and documentation are available in the GitHub repository.
+All SQL scripts, notebooks, and documentation are available in the [GitHub repository](https://github.com/sfc-gh-sdickson/Snow-Health-Compliance).
 
 ### Support
 
